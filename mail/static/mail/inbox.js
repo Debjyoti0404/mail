@@ -20,6 +20,11 @@ function compose_email() {
   document.querySelector('#compose-recipients').value = '';
   document.querySelector('#compose-subject').value = '';
   document.querySelector('#compose-body').value = '';
+
+  document.querySelector('#compose-form').onsubmit = event => {
+    event.preventDefault(); //this prevents page from refreshing. Otherwise fetch won't work.
+    send_mail();
+  }
 }
 
 function load_mailbox(mailbox) {
@@ -30,4 +35,20 @@ function load_mailbox(mailbox) {
 
   // Show the mailbox name
   document.querySelector('#emails-view').innerHTML = `<h3>${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>`;
+}
+
+function send_mail() {
+  fetch('/emails', {
+    method: 'POST',
+    body: JSON.stringify({
+        recipients: 'sankha@gmail.com',
+        subject: 'Meeting time',
+        body: 'How about we meet tomorrow at 3pm?'
+    })
+  })
+  .then(response => response.json())
+  .then(result => {
+    console.log(result)
+  })
+  .then(load_mailbox('sent'));
 }
