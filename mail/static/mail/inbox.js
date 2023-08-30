@@ -14,6 +14,7 @@ function compose_email() {
 
   // Show compose view and hide other views
   document.querySelector('#emails-view').style.display = 'none';
+  document.querySelector('#detailed-view').style.display = 'none';
   document.querySelector('#compose-view').style.display = 'block';
 
   // Clear out composition fields
@@ -32,6 +33,7 @@ function load_mailbox(mailbox) {
   // Show the mailbox and hide other views
   document.querySelector('#emails-view').style.display = 'block';
   document.querySelector('#compose-view').style.display = 'none';
+  document.querySelector('#detailed-view').style.display = 'none';
 
   // Show the mailbox name
   document.querySelector('#emails-view').innerHTML = `<h3>${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>`;
@@ -42,9 +44,9 @@ function send_mail() {
   fetch('/emails', {
     method: 'POST',
     body: JSON.stringify({
-        recipients: document.getElementById('compose-recipients').value,
-        subject: document.getElementById('compose-subject').value,
-        body: document.getElementById('compose-body').value
+        recipients: document.querySelector('#compose-recipients').value,
+        subject: document.querySelector('#compose-subject').value,
+        body: document.querySelector('#compose-body').value
     })
   })
   .then(response => response.json())
@@ -83,8 +85,49 @@ function mail_preview(mailbox) {
         border: solid black 1px;
         display: flex;
       `
-      element_div.addEventListener('click', () => {console.log(element)});
-      document.getElementById('emails-view').append(element_div);
+      element_div.addEventListener('click', () => detailed_view(element));
+      document.querySelector('#emails-view').append(element_div);
     });
-  })
+  });
+}
+
+function detailed_view(element) {
+  let mail_id = element.id.toString();
+  let path = '/emails/';
+  path = path.concat(mail_id);
+  fetch(path)
+  .then(response => response.json())
+  .then(result => {
+    console.log(result);
+    let all_receipients = String();
+    result.recipients.forEach(recipient => {
+      all_receipients = all_receipients.concat(recipient);
+    })
+    const head_content = document.createElement('ul');
+    head_content.setAttribute('class', 'list-unstyled')
+    head_content.innerHTML = `
+      <li><strong>From: </strong>${result.sender}</li>
+      <li><strong>To: </strong>${all_receipients}</li>
+      <li><strong>Subject: </strong>${result.subject}</li>
+      <li><strong>Timestamp: </strong>${result.timestamp}</li>
+      <hr>
+    `;
+    const mail_content = document.createElement('p');
+    mail_content.innerHTML = result.body;
+    document.querySelector('#emails-view').style.display = 'none';
+    document.querySelector('#detailed-view').style.display = 'block';
+    //for removing previously loaded mail
+    while(document.querySelector('#detailed-view').firstChild)
+      document.querySelector('#detailed-view').removeChild(document.querySelector('#detailed-view').firstChild);
+    document.querySelector('#detailed-view').appendChild(head_content);
+    document.querySelector('#detailed-view').appendChild(mail_content);
+
+    fetch(path, {
+      method: 'PUT',
+      body: JSON.stringify({
+        read: true
+      })
+    })
+    .then(response => {console.log(response)});
+  });
 }
