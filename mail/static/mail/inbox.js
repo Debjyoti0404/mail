@@ -52,13 +52,14 @@ function send_mail() {
   .then(response => response.json())
   .then(result => {
     console.log(result)
-  })
-  .then(load_mailbox('sent'));
+    load_mailbox('sent');
+  });
 }
 
 function mail_preview(mailbox) {
   let path = '/emails/';
   path = path.concat(mailbox);
+
   fetch(path)
   .then(response => response.json())
   .then(result => {
@@ -85,13 +86,13 @@ function mail_preview(mailbox) {
         border: solid black 1px;
         display: flex;
       `
-      element_div.addEventListener('click', () => detailed_view(element));
+      element_div.addEventListener('click', () => detailed_view(element, mailbox));
       document.querySelector('#emails-view').append(element_div);
     });
   });
 }
 
-function detailed_view(element) {
+function detailed_view(element, mailbox) {
   let mail_id = element.id.toString();
   let path = '/emails/';
   path = path.concat(mail_id);
@@ -101,8 +102,9 @@ function detailed_view(element) {
     console.log(result);
     let all_receipients = String();
     result.recipients.forEach(recipient => {
-      all_receipients = all_receipients.concat(recipient);
+      all_receipients = all_receipients.concat(recipient + ' ');
     })
+
     const head_content = document.createElement('ul');
     head_content.setAttribute('class', 'list-unstyled')
     head_content.innerHTML = `
@@ -110,8 +112,11 @@ function detailed_view(element) {
       <li><strong>To: </strong>${all_receipients}</li>
       <li><strong>Subject: </strong>${result.subject}</li>
       <li><strong>Timestamp: </strong>${result.timestamp}</li>
+      <button class="btn btn-sm btn-outline-primary" id="archive"></button>
+      <button class="btn btn-sm btn-outline-primary" id="reply">Reply</button>
       <hr>
     `;
+
     const mail_content = document.createElement('p');
     mail_content.innerHTML = result.body;
     document.querySelector('#emails-view').style.display = 'none';
@@ -129,5 +134,55 @@ function detailed_view(element) {
       })
     })
     .then(response => {console.log(response)});
+    //restricting option for reply and archive for emails in sent
+    if(mailbox === 'sent') {
+      document.querySelector('#archive').style.display = 'none';
+      document.querySelector('#reply').style.display = 'none';
+    }
+    else {
+      if(mailbox === 'inbox')
+        document.querySelector('#archive').innerHTML = 'Archive';
+      else if(mailbox === 'archive')
+        document.querySelector('#archive').innerHTML = 'Unarchive';
+      document.querySelector('#archive').addEventListener('click', () => archive(path, result));
+      document.querySelector('#reply').addEventListener('click', () => reply(result));
+    }
   });
+}
+
+function archive(path, result) {
+  let status;
+  if(result.archived)
+    status = false;
+  else 
+    status = true;
+
+  fetch(path, {
+    method: 'PUT',
+    body: JSON.stringify({
+      archived: status
+    })
+  })
+  .then(response => {
+    console.log(response)
+    load_mailbox('inbox');
+  });
+}
+
+function reply(result) {
+  let reply_subject = result.subject;
+  document.querySelector('#emails-view').style.display = 'none';
+  document.querySelector('#detailed-view').style.display = 'none';
+  document.querySelector('#compose-view').style.display = 'block';
+
+  document.querySelector('#compose-recipients').value = result.sender;
+  if(!reply_subject.includes('Re:'))
+    reply_subject = 'Re: ' + reply_subject;
+  document.querySelector('#compose-subject').value = reply_subject;
+  document.querySelector('#compose-body').value = `On ${result.timestamp} ${result.sender} wrote: ${result.body}`;
+
+  document.querySelector('#compose-form').onsubmit = event => {
+    event.preventDefault(); //this prevents page from refreshing. Otherwise fetch won't work.
+    send_mail();
+  }
 }
